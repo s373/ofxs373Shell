@@ -223,8 +223,8 @@ reinit:
 						}
 
 
-						int midx = (startmessageidx + i) % minnumsamples;
-						messagebuffer[midx] = c; 
+						// int midx = (startmessageidx + i) % minnumsamples;
+						// messagebuffer[midx] = c; 
 
 						int bidx = bufferidstart * minnumsamples + sampleidstart + i;
 						while(bidx>=(maxnumsamples-1)){ bidx -= maxnumsamples; }
