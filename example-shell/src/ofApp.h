@@ -47,8 +47,9 @@ class ofApp : public ofBaseApp{
 		void keyPressed(int key){
 			if(key=='1'){
 				// shell.setup("make ../../", 512, 144096);
-				// shell.setSystemCall("cd  ../ && make"); // buggy, does not reinit fully
-				shell.setup("cd  ../ && make", 512, 144000); // remake this proj
+				shell.setSystemCall("cd  ../ && make"); // buggy, does not reinit fully
+				// shell.setup("cd  ../ && make", 512, 144000); // remake this proj
+				// shell.setSystemCall("cd  ../ && make", 512, 144000); // remake this proj
 			}
 			if(key=='2'){
 				shell.setup("ls -Ra ../../../../", 512, 14000000);

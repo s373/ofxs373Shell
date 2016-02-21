@@ -107,8 +107,14 @@ public:
 	}
 
 	void setSystemCall(string call){
-		// stopThread();
-		if(isThreadRunning())stopThread();
+
+		if(isThreadRunning()){
+			stopThread();
+			if(inproc){
+				pclose(inproc);
+				inproc=NULL;
+			}
+		}
 		systemcall = call;
 		numbuffersread = 0;
 
