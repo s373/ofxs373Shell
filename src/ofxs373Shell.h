@@ -10,7 +10,7 @@
 // initially programmed in 2010 processing s373.shell
 
 
-// todo: newlines are still not good while parsing proc, they are good once we cpy the whole string
+// todo: verify newlines are still not good while parsing proc, they are good once we cpy the whole string
 
 #pragma once
 
@@ -383,4 +383,3 @@ reinit:
 	}
 
 };
-

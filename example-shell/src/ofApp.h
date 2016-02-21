@@ -1,3 +1,7 @@
+// ofxs373Shell
+// Copyright s373.net/x, 2016
+// programmed by Andre Sier 2010,2016
+
 #pragma once
 
 #include "ofMain.h"
@@ -16,14 +20,12 @@ class ofApp : public ofBaseApp{
 
 		ofSoundStream	sound;
 
-
 		void setup(){
 
 			ofSetWindowTitle("ofxs373Shell");
 
 			// in this example, 3 concorrent threads access shellinfo
 			// opngl thread, audiothread, and ofxs373Shell's thread
-	
 			ofSetFrameRate(1000);// or 10000
 
 			string call = "ls -R /home";
@@ -38,17 +40,13 @@ class ofApp : public ofBaseApp{
 
 			sound.listDevices();
 			sound.setDeviceID(3);
-			// sound.setup(this, 2, 0, 44100, 64, 4);
 			sound.setup(this, 2, 0, SR, BS, 4);
-
 		}
 
 
 		void keyPressed(int key){
 			if(key=='1'){
-				// shell.setup("make ../../", 512, 144096);
-				shell.setSystemCall("cd  ../ && make"); // buggy, does not reinit fully
-				// shell.setup("cd  ../ && make", 512, 144000); // remake this proj
+				shell.setSystemCall("cd  ../ && make"); // not buggy anymore
 				// shell.setSystemCall("cd  ../ && make", 512, 144000); // remake this proj
 			}
 			if(key=='2'){
