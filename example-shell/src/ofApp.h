@@ -5,6 +5,7 @@
 #include "ofxs373Shell.h"
 
 #define SR 44100
+// #define SR 22050
 #define BS 512
 
 class ofApp : public ofBaseApp{
@@ -17,25 +18,23 @@ class ofApp : public ofBaseApp{
 
 
 		void setup(){
+
+			ofSetWindowTitle("ofxs373Shell");
+
+			// in this example, 3 concorrent threads access shellinfo
+			// opngl thread, audiothread, and ofxs373Shell's thread
 	
-			ofSetFrameRate(10);
+			ofSetFrameRate(1000);// or 10000
 
-			// string call = "ls -laR";
-			// string call = "top";
-			// string call = "tree /home/as";
-			// string call = "ls -R /home";
-			// string call = "ls -R /home";
 			string call = "ls -R /home";
-			// string call = "top";
-			// 0x21a32c8 ofxs373Shell closed proc w status 0reading 2881250 chars
 
-			string command = "tcpdump -i wlan0 -AvvX";
 
-			// shell.setup(call, 32, 1000);
-			// shell.setup(call, 512, 44100*10);
+			// must have previledges
+			string command = "tcpdump -i wlan0 -X";
+
 			shell.setup(command, 512, 44100*10);
 			// shell.setup(call, 512, 4096);
-			// shell.setup(call, 512, 144096);
+			shell.setup(call, 512, 144096);
 
 			sound.listDevices();
 			sound.setDeviceID(3);
@@ -43,6 +42,35 @@ class ofApp : public ofBaseApp{
 			sound.setup(this, 2, 0, SR, BS, 4);
 
 		}
+
+
+		void keyPressed(int key){
+			if(key=='1'){
+				// shell.setup("make ../../", 512, 144096);
+				// shell.setSystemCall("cd  ../ && make"); // buggy, does not reinit fully
+				shell.setup("cd  ../ && make", 512, 144000); // remake this proj
+			}
+			if(key=='2'){
+				shell.setup("ls -Ra ../../../../", 512, 14000000);
+			}
+			if(key=='3'){
+				shell.setup("ls -Ra /usr/include/linux", 512, 144000);
+			}
+			if(key=='4'){
+				shell.setup("ls -Ra /usr/include", 512, 1440000);
+			}
+			if(key=='5'){
+				shell.setup("top", 512, 14400000);
+			}
+			if(key=='6'){
+				shell.setup("strace -p 1480", 512, 14400000);
+			}
+			// refork self 
+			if(key=='7'){
+				shell.setup("cd  ../ && make && make run", 512, 1440000);
+			}
+		}
+
 
 		void update(){
 			
@@ -60,11 +88,15 @@ class ofApp : public ofBaseApp{
 
 			ofSetColor(0);
 			string stats = "fps: "+ofToString(ofGetFrameRate())+"\n";
+			stats += "shell command: "+ofToString(shell.systemcall)+"\n";
 			stats += "shell running: "+ofToString(shell.isProcRunning())+"\n";
 			stats += "shell bs maxsamps: "+ofToString(shell.minnumsamples)+" "+ofToString(shell.maxnumsamples)+"\n";
 			stats += "shell currentbuffer: "+ofToString(shell.readbufferid)+"\n";
+			stats += "shell readbuffers: "+ofToString(shell.numbuffersread)+"\n";
+			stats += "shell maxbuffers: "+ofToString(shell.maxnumbuffers)+"\n";
 			ofDrawBitmapString(stats, 10, 500);
 
+			// cpying
 			string buf1 = shell.readNextBufferStr();
 			string buf2 = shell.readNextBufferStr();
 			string buf3 = shell.readNextBufferStr();
@@ -72,23 +104,24 @@ class ofApp : public ofBaseApp{
 			// string buf2 = shell.getLine(1);
 			// string buf3 = shell.getLine(3);
 
-			ofDrawBitmapString(buf1, 80, 10);
-			ofDrawBitmapString(buf2, 380, 10);
-			ofDrawBitmapString(buf3, 580, 10);
+			ofDrawBitmapString(buf1, 20, 10);
+			ofDrawBitmapString(buf2, 20, 110);
+			ofDrawBitmapString(buf3, 20, 210);
 
 		}
 
 
 
 		void audioOut(float * output, int bufferSize, int nChannels){
-
+			//!cpying
 			const string & buf = shell.readNextBufferStr();
 			const char * audiochar = &buf[0]; 
 
 			for (int i = 0; i < bufferSize; i++){
-				float as = audiochar[i] * 0.00787 * 0.2;
-				 output[i*nChannels    ] = as ;//+ ofMap(output[0], viz.channels[0].min, viz.channels[0].max, -1, 1) * volume;
-				 output[i*nChannels + 1] =  as ;//+ ofMap(output[1], viz.channels[1].min, viz.channels[1].max, -1, 1) * volume;
+				// float sig = audiochar[i] * 0.00787 * 0.25; // parsing -127 127, ie full char data
+				float sig = ofMap(ABS(audiochar[i]),0,127,-1,1) * 0.25; // parsing  0 127, ie ascii data
+				 output[i*nChannels    ] = sig ;
+				 output[i*nChannels + 1] =  sig ;
 			}
 
 		}
