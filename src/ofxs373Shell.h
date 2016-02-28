@@ -5,7 +5,7 @@
 // exec's and captures processes results output
 // no parsing, but should be easy
 
-// modeled after inter threading access, 
+// modeled after inter threading access,
 // maintains a safe pool of data around
 // initially programmed in 2010 processing s373.shell
 
@@ -29,34 +29,38 @@ public:
    	FILE 			*inproc;
 
 	string			systemcall; // command
-	
+
 	string			systemcallresult; // buffered n min samples results
-	
+
 	string 			procmessagebuffer; // internal proc dump
 	string 			messagebuffer; // access this from outside, raw incoming data minnumsamples dim
 
 	string 			fullmessagebuffer; // storage
-	
+
 	int 			minnumsamples; //buffer size
-	int 			maxnumsamples; //storage, integer multiple of maxnumsamples / minnumsamples 
+	int 			maxnumsamples; //storage, integer multiple of maxnumsamples / minnumsamples
 	int 			maxnumbuffers, numbuffersread; //storage, actual number of bufs
+	int				maxreadbufferid;
 	int 			readbufferid, writebufferid; //write still not used
 
-	bool 			hasinfo;	
-	bool 			procrunning;	
-	bool 			copywhendone,verbose;	
+	bool 			hasinfo;
+	bool 			procrunning;
+	bool 			copywhendone,verbose;
 
 	/// lines int processing
 	int numlines;
 
-	
+
 	ofxs373Shell(){
 		procrunning=false;
+		maxreadbufferid = -1;
 	}
 
-	void setup(string scall, int minsamples=64, 
-		int maxsamples=10000, bool cpy=false, bool verb=false){
-		
+	void setup(string scall, int minsamples=64,
+		// int maxsamples=10000,
+		int maxbuffers=1000,
+		bool cpy=false, bool verb=false){
+
 
 		if(procrunning){
 			if(inproc!=NULL){ pclose(inproc);}
@@ -69,26 +73,30 @@ public:
 		verbose = verb;
 		systemcall = scall;
 		systemcallresult = "";
-		setSamples(minsamples,maxsamples);
+		setSamples(minsamples,maxbuffers);
 		setSystemCall(scall);
 	}
 
 	// thread unsafe, be sure to init this first b4 acessing
-	void setSamples(int min, int max){
+	void setSamples(int min, int nbuf){
 		minnumsamples=min; //bs
-		int desiredmaxnumsamples=max;
+		// int desiredmaxnumsamples=min*nbuf; //max;
 
-		float numbuffers = (float)desiredmaxnumsamples/minnumsamples;
-		maxnumbuffers = (int) (numbuffers+1);
+		// float numbuffers = (float)desiredmaxnumsamples/minnumsamples;
+
+		// maxnumbuffers = (int) (numbuffers+1);
+		maxnumbuffers = nbuf;
+
 		maxnumsamples = minnumsamples * maxnumbuffers;
+
+
 		numbuffersread = 0;
 
 		if(verbose)
-		cout << this <<" ofxs373Shell minsamples " <<
-		minnumsamples<< " desired " << desiredmaxnumsamples <<
-		 " actualsamples " << maxnumsamples <<
-		 " numbfs " << maxnumbuffers << endl; 
-		
+		cout << this <<" ofxs373Shell minsamples " << minnumsamples<<
+		" numbfs " << maxnumbuffers <<
+		 " actualsamples " << maxnumsamples << endl;
+
 		// gather memory before start
 		 procmessagebuffer="";
 		 messagebuffer="";
@@ -126,10 +134,13 @@ public:
 	bool isProcRunning(){
 		return procrunning;
 	}
-   
+
+	void setMaxReadBuffer(int i){
+		maxreadbufferid = i;
+	}
 
    void threadedFunction(){
-				
+
    		while (isThreadRunning()) {
 
 reinit:
@@ -139,7 +150,7 @@ reinit:
 					cout << this << " systemcall empty " << endl;
    		    		stopThread(); return;
 			}
-   		    
+
    			// FILE *inproc;
    			char * buf = &procmessagebuffer[0];
 
@@ -162,7 +173,7 @@ reinit:
 
    		    while( fgets(buf,minnumsamples,inproc) != NULL){
    	    			procrunning = true;
-					
+
 					numiters++;
 
 					bool ended = false;
@@ -189,7 +200,7 @@ reinit:
 					if(systemcallresult.size()>SHELLMAXSTRING){
 						// hardreset
 						// systemcallresult = "";
-						
+
 						pclose(inproc);
 						goto reinit;
 					}
@@ -203,7 +214,7 @@ reinit:
 					// from read samples, determine bufferid and startindexwriting
 
 					int bufferidstart = numsamplesread / minnumsamples;
-					
+
 					if(numbuffersread<=bufferidstart){
 						numbuffersread=bufferidstart;
 					}
@@ -230,7 +241,7 @@ reinit:
 
 
 						// int midx = (startmessageidx + i) % minnumsamples;
-						// messagebuffer[midx] = c; 
+						// messagebuffer[midx] = c;
 
 						int bidx = bufferidstart * minnumsamples + sampleidstart + i;
 						while(bidx>=(maxnumsamples-1)){ bidx -= maxnumsamples; }
@@ -245,7 +256,7 @@ reinit:
  			// numlines = countNumLines(); // reset numlines
 
 			if(verbose)
- 			cout << this <<" ofxs373Shell closed proc w status " << status << 
+ 			cout << this <<" ofxs373Shell closed proc w status " << status <<
  			" reading "<< systemcallresult.size() << " chars " << endl
  			<< " numiters " << numiters << " bufsize " << minnumsamples << " numbuffersread " << numbuffersread
  			<< " maxnumsamples " << maxnumsamples << " numlines "<< numlines<<endl;
@@ -260,7 +271,7 @@ reinit:
 
  			// n devia ser preciso, acima deve ter erros,
  			// passar tudo da mesnage dentro do buffer
- 	
+
  			if(copywhendone){
 
 	 			numlines = countNumLines(); // reset numlines
@@ -270,10 +281,10 @@ reinit:
 	 			int msamp = maxnumsamples;
 
 	 			if(msize>msamp){
-	 				cout << "warning proc message size > proc message buffer " << msize << " " << msamp << endl; 
+	 				cout << "warning proc message size > proc message buffer " << msize << " " << msamp << endl;
 	 			}
-	 			
-	 			if(verbose) cout << "begin fullproc message buffer " << msize << " " << msamp << endl; 
+
+	 			if(verbose) cout << "begin fullproc message buffer " << msize << " " << msamp << endl;
 
 	 			for(int i=0; i<msamp; i++ ){
 	 				if( i < msize){
@@ -290,7 +301,7 @@ reinit:
 
  			// ofSleepMillis(50);
 		} // while thread running
-	
+
 	} // func
 
 
@@ -300,8 +311,8 @@ reinit:
 	const string & readBufferStrSampleId(int startsampleid){
 		int startid = startsampleid;
 		int safeid = numbuffersread * minnumsamples - minnumsamples -1;
-		if(startid >= safeid){ 
-			startid = safeid; 
+		if(startid >= safeid){
+			startid = safeid;
 			cout << "adjusting readBufferStr startid to " << startid << endl;
 		}
 
@@ -329,6 +340,10 @@ reinit:
 			return messagebuffer;
 		}
 
+		if(maxreadbufferid>0){
+			maxbufs = MIN(maxbufs, maxreadbufferid);
+		}
+
 		// readbufferid = (readbufferid+1)%maxbufs; // % is not fast
 		readbufferid++;
 		if(readbufferid>=(maxbufs-1)) readbufferid=0;
@@ -345,11 +360,11 @@ reinit:
 		}
 		return ret;
 	}
-	
+
 	const string getLine(int n){
-		
+
 		string linestr="";
-		
+
 		if(numlines<=0){
 			cout << this << " s373ShellThread warning no linesyet " << n << " w numlines " << numlines << endl;
 			return linestr;

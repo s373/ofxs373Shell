@@ -34,9 +34,12 @@ class ofApp : public ofBaseApp{
 			// must have previledges
 			string command = "tcpdump -i wlan0 -X";
 
-			shell.setup(command, 512, 44100*10);
+			// setup was bufferSize maxnumsamples, now is
+			// bufferSize numbuffers
+
+			shell.setup(command, 512, 10);//44100*10);
 			// shell.setup(call, 512, 4096);
-			shell.setup(call, 512, 144096);
+			shell.setup(call, 512, 20);//144096);
 
 			sound.listDevices();
 			sound.setDeviceID(3);
@@ -50,37 +53,42 @@ class ofApp : public ofBaseApp{
 				// shell.setSystemCall("cd  ../ && make", 512, 144000); // remake this proj
 			}
 			if(key=='2'){
-				shell.setup("ls -Ra ../../../../", 512, 14000000);
+				shell.setup("ls -Ra ../../../../", 512, 5000);// 14000000);
 			}
 			if(key=='3'){
-				shell.setup("ls -Ra /usr/include/linux", 512, 144000);
+				shell.setup("ls -Ra /usr/include/linux", 512, 5000);//144000);
 			}
 			if(key=='4'){
-				shell.setup("ls -Ra /usr/include", 512, 1440000);
+				shell.setup("ls -Ra /usr/include", 512, 5000);//1440000);
 			}
 			if(key=='5'){
-				shell.setup("top", 512, 14400000);
+				shell.setup("top", 512, 5000);//14400000);
 			}
 			if(key=='6'){
-				shell.setup("strace -p 1480", 512, 14400000);
+				shell.setup("strace -p 1480", 512, 5000);//14400000);
 			}
-			// refork self 
+			// refork self
 			if(key=='7'){
-				shell.setup("cd  ../ && make && make run", 512, 1440000);
+				shell.setup("cd  ../ && make && make run", 512, 5000);//1440000);
 			}
+
+			if(key=='a'){
+				shell.setMaxReadBuffer((int) ofRandom(100));
+			}
+
 		}
 
 
 		void update(){
-			
+
 
 		}
 
-		void draw(){ 
+		void draw(){
 
 			if(shell.isProcRunning()){
 				ofSetColor(0,255,0);
-			} else 
+			} else
 				ofSetColor(255,0,0);
 
 			ofRect(10,410,50,50);
@@ -92,8 +100,9 @@ class ofApp : public ofBaseApp{
 			stats += "shell bs maxsamps: "+ofToString(shell.minnumsamples)+" "+ofToString(shell.maxnumsamples)+"\n";
 			stats += "shell currentbuffer: "+ofToString(shell.readbufferid)+"\n";
 			stats += "shell readbuffers: "+ofToString(shell.numbuffersread)+"\n";
-			stats += "shell maxbuffers: "+ofToString(shell.maxnumbuffers)+"\n";
-			ofDrawBitmapString(stats, 10, 500);
+			stats += "shell maxnumbuffers: "+ofToString(shell.maxnumbuffers)+"\n";
+			stats += "shell maxnumreadbuffers: "+ofToString(shell.maxreadbufferid)+"\n";
+			ofDrawBitmapString(stats, 10, 450);
 
 			// cpying
 			string buf1 = shell.readNextBufferStr();
@@ -114,7 +123,7 @@ class ofApp : public ofBaseApp{
 		void audioOut(float * output, int bufferSize, int nChannels){
 			//!cpying
 			const string & buf = shell.readNextBufferStr();
-			const char * audiochar = &buf[0]; 
+			const char * audiochar = &buf[0];
 
 			for (int i = 0; i < bufferSize; i++){
 				// float sig = audiochar[i] * 0.00787 * 0.25; // parsing -127 127, ie full char data
