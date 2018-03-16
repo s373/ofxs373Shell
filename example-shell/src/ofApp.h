@@ -9,7 +9,6 @@
 #include "ofxs373Shell.h"
 
 #define SR 44100
-// #define SR 22050
 #define BS 512
 
 class ofApp : public ofBaseApp{
@@ -26,54 +25,60 @@ class ofApp : public ofBaseApp{
 
 			// in this example, 3 concorrent threads access shellinfo
 			// opngl thread, audiothread, and ofxs373Shell's thread
-			ofSetFrameRate(1000);// or 10000
+			ofSetFrameRate(30);// or 10000
 
 			string call = "ls -R /home";
-
 
 			// must have previledges
 			string command = "tcpdump -i wlan0 -X";
 
-			// setup was bufferSize maxnumsamples, now is
-			// bufferSize numbuffers
 
-			shell.setup(command, 512, 10);//44100*10);
-			// shell.setup(call, 512, 4096);
-			shell.setup(call, 512, 20);//144096);
+			// setup was syscall bufferSize maxnumsamples, now is
+			// setup syscall bufferSize numbuffers
+
+			shell.setup(command, 512, 10);
+			shell.setup(call, 512, 20);
 
 			sound.listDevices();
-			sound.setDeviceID(3);
-			sound.setup(this, 2, 0, SR, BS, 4);
+			sound.setDeviceID(6);
+		 	sound.setup(this, 2, 0, SR, BS, 4);
 		}
 
-
 		void keyPressed(int key){
+
+			if(key=='0'){
+				//‏fun from @julian0liver: https://twitter.com/julian0liver/status/698577959859392512
+				string julian = "make V=1 2>&1|while read line;do echo \"$line\"|wc -m|beep -f `tee` -r 3 -l 100; echo $line; done #;-)";
+				shell.setSystemCall(julian);
+			}
 			if(key=='1'){
-				shell.setSystemCall("cd  ../ && make"); // not buggy anymore
-				// shell.setSystemCall("cd  ../ && make", 512, 144000); // remake this proj
+				shell.setSystemCall("cd  ../ && make");
 			}
 			if(key=='2'){
-				shell.setup("ls -Ra ../../../../", 512, 5000);// 14000000);
+				shell.setSystemCall("ls -Ra ../../");
 			}
 			if(key=='3'){
-				shell.setup("ls -Ra /usr/include/linux", 512, 5000);//144000);
+				shell.setSystemCall("ls -Ra /usr/include/linux");
 			}
 			if(key=='4'){
-				shell.setup("ls -Ra /usr/include", 512, 5000);//1440000);
+				shell.setSystemCall("ls -Ra /usr/include");
 			}
 			if(key=='5'){
-				shell.setup("top", 512, 5000);//14400000);
+				shell.setSystemCall("top");
 			}
 			if(key=='6'){
-				shell.setup("strace -p 1480", 512, 5000);//14400000);
+				shell.setSystemCall("strace -p 1480");
 			}
-			// refork self
+			// refork self always
 			if(key=='7'){
-				shell.setup("cd  ../ && make && make run", 512, 5000);//1440000);
+				shell.setSystemCall("cd  ../ && make && make run");
 			}
 
 			if(key=='a'){
-				shell.setMaxReadBuffer((int) ofRandom(100));
+				int a = (int) ofRandom(100);
+				int b =(int) ofRandom(shell.maxnumbuffers);
+				shell.setMinReadBuffer(b);
+				shell.setMaxReadBuffer(b+a);
 			}
 
 		}
@@ -127,7 +132,7 @@ class ofApp : public ofBaseApp{
 
 			for (int i = 0; i < bufferSize; i++){
 				// float sig = audiochar[i] * 0.00787 * 0.25; // parsing -127 127, ie full char data
-				float sig = ofMap(ABS(audiochar[i]),0,127,-1,1) * 0.25; // parsing  0 127, ie ascii data
+				float sig = ofMap(ABS(audiochar[i]),0,127,-1,1) * 0.25; // parsing  0 127, ie ascii data regions sort of
 				 output[i*nChannels    ] = sig ;
 				 output[i*nChannels + 1] =  sig ;
 			}

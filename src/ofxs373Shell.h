@@ -10,20 +10,21 @@
 // initially programmed in 2010 processing s373.shell
 
 
+// todo: *** Error in `./example-shell': double free or corruption (out): 0x0000560490418510 ***Aborted (core dumped)
+
 // todo: verify newlines are still not good while parsing proc, they are good once we cpy the whole string
 
 #pragma once
 
 #include <iostream>
 #include <stdio.h>
-
+#include "Poco/Mutex.h"
 #include "ofMain.h"
 
-#define SHELLMAXSTRING 1<<20
+#define SHELLMAXSTRING 1<<21
 
 class ofxs373Shell : public ofThread{
 
-	// ofMutex	mutex; // not needed, thread safe
 public:
 
    	FILE 			*inproc;
@@ -40,7 +41,7 @@ public:
 	int 			minnumsamples; //buffer size
 	int 			maxnumsamples; //storage, integer multiple of maxnumsamples / minnumsamples
 	int 			maxnumbuffers, numbuffersread; //storage, actual number of bufs
-	int				maxreadbufferid;
+	int				minreadbufferid,maxreadbufferid;
 	int 			readbufferid, writebufferid; //write still not used
 
 	bool 			hasinfo;
@@ -49,13 +50,15 @@ public:
 
 	/// lines int processing
 	int numlines;
+	Poco::FastMutex mutex;
 
-
+	~ofxs373Shell(){}
 	ofxs373Shell(){
 		procrunning=false;
-		maxreadbufferid = -1;
+		minreadbufferid=maxreadbufferid = -1;
 	}
 
+	// recalling setup was working ok gcc5, now
 	void setup(string scall, int minsamples=64,
 		// int maxsamples=10000,
 		int maxbuffers=1000,
@@ -79,6 +82,9 @@ public:
 
 	// thread unsafe, be sure to init this first b4 acessing
 	void setSamples(int min, int nbuf){
+
+		mutex.lock();
+
 		minnumsamples=min; //bs
 		// int desiredmaxnumsamples=min*nbuf; //max;
 
@@ -97,21 +103,21 @@ public:
 		" numbfs " << maxnumbuffers <<
 		 " actualsamples " << maxnumsamples << endl;
 
-		// gather memory before start
+		// gather memory before start, epic amounts of zeros
 		 procmessagebuffer="";
 		 messagebuffer="";
 		 // messagebufferret="";
 		 fullmessagebuffer="";
 
-		 // starts w noise, no can do
 		for(int i=0; i<maxnumsamples; i++){
-			fullmessagebuffer += '\0';//32;//(char) ofRandom(-127, 128);
+			fullmessagebuffer += '\0';
 		}
 		for(int i=0; i<minnumsamples; i++){
 			messagebuffer+=fullmessagebuffer[i];
 		}
 		procmessagebuffer = messagebuffer;
-		// messagebufferret = messagebuffer;
+
+		mutex.unlock();
 	}
 
 	void setSystemCall(string call){
@@ -135,9 +141,8 @@ public:
 		return procrunning;
 	}
 
-	void setMaxReadBuffer(int i){
-		maxreadbufferid = i;
-	}
+	void setMinReadBuffer(int i){ minreadbufferid = i; }
+	void setMaxReadBuffer(int i){ maxreadbufferid = i; }
 
    void threadedFunction(){
 
@@ -154,6 +159,7 @@ reinit:
    			// FILE *inproc;
    			char * buf = &procmessagebuffer[0];
 
+			// read priv
    		   	if( !(inproc=popen(systemcall.c_str(), "r" )) ) {
    		   		cout << "no inproc error , stopThread()" << endl;
    		   		stopThread(); return;
@@ -229,24 +235,31 @@ reinit:
 						howmanythisloop++;
 					}
 
-					for(int i=0; i<howmanythisloop; i++){
 
-						char c = 0;
+					if(mutex.tryLock(5)) {
 
-						if(ended && i==(howmanythisloop-1)){
-							c = '\n';
-						} else {
-							c = systemcallresult[startidx+i];
+						for(int i=0; i<howmanythisloop; i++){
+
+							char c = 0;
+
+							if(ended && i==(howmanythisloop-1)){
+								c = '\n';
+							} else {
+								c = systemcallresult[startidx+i];
+							}
+
+
+							// int midx = (startmessageidx + i) % minnumsamples;
+							// messagebuffer[midx] = c;
+
+							int bidx = bufferidstart * minnumsamples + sampleidstart + i;
+							while(bidx>=(maxnumsamples-1)){ bidx -= maxnumsamples; }
+							fullmessagebuffer[bidx] = c;
 						}
 
-
-						// int midx = (startmessageidx + i) % minnumsamples;
-						// messagebuffer[midx] = c;
-
-						int bidx = bufferidstart * minnumsamples + sampleidstart + i;
-						while(bidx>=(maxnumsamples-1)){ bidx -= maxnumsamples; }
-						fullmessagebuffer[bidx] = c;
+						mutex.unlock();
 					}
+
 
 
 
@@ -286,13 +299,18 @@ reinit:
 
 	 			if(verbose) cout << "begin fullproc message buffer " << msize << " " << msamp << endl;
 
-	 			for(int i=0; i<msamp; i++ ){
-	 				if( i < msize){
-	 					fullmessagebuffer[i] = systemcallresult[i];
-	 				}else {
-	 					fullmessagebuffer[i] = 32;
-	 				}
-	 			}
+				if(mutex.tryLock(5)) {
+
+		 			for(int i=0; i<msamp; i++ ){
+		 				if( i < msize){
+		 					fullmessagebuffer[i] = systemcallresult[i];
+		 				}else {
+		 					fullmessagebuffer[i] = 32;
+		 				}
+		 			}
+
+					mutex.unlock();
+				}
  			}
 
  			stopThread();
@@ -316,9 +334,11 @@ reinit:
 			cout << "adjusting readBufferStr startid to " << startid << endl;
 		}
 
+		mutex.lock();
 		for(int i=0; i<minnumsamples; i++){
 			messagebuffer[i] = fullmessagebuffer[startid+i];
 		}
+		mutex.unlock();
 
 		return messagebuffer;
 	}
@@ -327,9 +347,11 @@ reinit:
 		// int maxbufs = MIN(maxnumbuffers, numbuffersread);
 		int safebufferid = MIN(startbufferid, maxnumbuffers);
 		int startid = safebufferid * minnumsamples;
+		mutex.lock();
 		for(int i=0; i<minnumsamples; i++){
 			messagebuffer[i] = fullmessagebuffer[startid+i];
 		}
+		mutex.unlock();
 		return messagebuffer;
 	}
 	const string & readNextBufferStr(){
@@ -346,18 +368,22 @@ reinit:
 
 		// readbufferid = (readbufferid+1)%maxbufs; // % is not fast
 		readbufferid++;
-		if(readbufferid>=(maxbufs-1)) readbufferid=0;
-		// cout << "reading buffer " << readbufferid << endl;
+		if(readbufferid>=(maxbufs-1)) {
+			if(minreadbufferid < 0) readbufferid=0;
+			else readbufferid = minreadbufferid;
+		}
 		return readBufferStrBufferId(readbufferid);
 	}
 
 	// allocates & copies, not fast but handy
 	const string readStr(int startidx, int numsamptstoread){
 		string ret="";
+		mutex.lock();
 		for(int i=0; i<numsamptstoread; i++){
 			int idx = (startidx+i)%maxnumsamples;
 			ret += fullmessagebuffer[idx];
 		}
+		mutex.unlock();
 		return ret;
 	}
 
@@ -376,6 +402,7 @@ reinit:
 			n = numlines -1;
 		}
 
+		mutex.lock();
 		for(int i=0; i<maxnumsamples;i++){
 			if(clineidx == n){ linestr += fullmessagebuffer[i]; }
 			if(clineidx > n){ break; }
@@ -383,17 +410,21 @@ reinit:
 				clineidx++;
 			}
 		}
+		mutex.unlock();
 		return linestr;
 	}
 
 	int countNumLines(){
 		int nlines=0;
+
+		mutex.lock();
 		for(int i=0; i<maxnumsamples; i++){
 			// if(fullmessagebuffer[i]=='\n'){
 			if(fullmessagebuffer[i]==10||fullmessagebuffer[i]==13){
 				nlines++;
 			}
 		}
+		mutex.unlock();
 		return nlines;
 	}
 
