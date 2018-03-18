@@ -49,36 +49,35 @@ class ofApp : public ofBaseApp{
 			if(key=='0'){
 				//‏fun from @julian0liver: https://twitter.com/julian0liver/status/698577959859392512
 				string julian = "make V=1 2>&1|while read line;do echo \"$line\"|wc -m|beep -f `tee` -r 3 -l 100; echo $line; done #;-)";
-				shell.setSystemCall(julian);
+				shell.exe(julian);
 			}
 			if(key=='1'){
-				shell.setSystemCall("cd  ../ && make");
+				shell.exe("cd  ../ && make");
 			}
 			if(key=='2'){
-				shell.setSystemCall("ls -Ra ../../");
+				shell.exe("ls -Ra ../../");
 			}
 			if(key=='3'){
-				shell.setSystemCall("ls -Ra /usr/include/linux");
+				shell.exe("ls -Ra /usr/include/linux");
 			}
 			if(key=='4'){
-				shell.setSystemCall("ls -Ra /usr/include");
+				shell.exe("ls -Ra /usr/include");
 			}
 			if(key=='5'){
-				shell.setSystemCall("top");
+				shell.exe("top");
 			}
 			if(key=='6'){
-				shell.setSystemCall("strace -p 1480");
+				shell.exe("strace -p 1480");
 			}
 			// refork self always
 			if(key=='7'){
-				shell.setSystemCall("cd  ../ && make && make run");
+				shell.exe("cd  ../ && make && make run");
 			}
 
 			if(key=='a'){
-				int a = (int) ofRandom(100);
-				int b =(int) ofRandom(shell.maxnumbuffers);
-				shell.setMinReadBuffer(b);
-				shell.setMaxReadBuffer(b+a);
+				int a = (int) ofRandom(shell.getTotalSamples()/5);
+				int b =(int) ofRandom(shell.getTotalSamples());
+				shell.setMinMax(b,a+b);
 			}
 
 		}
@@ -86,7 +85,14 @@ class ofApp : public ofBaseApp{
 
 		void update(){
 
-
+			// if(ofGetMousePressed(0)){
+            //
+			// 	float perx = ofGetMouseX()/(float)ofGetWidth();
+			// 	float pery = ofGetMouseY()/(float)ofGetHeight();
+			// 	int mn = (int) (perx * shell.getTotalSamples());
+			// 	int mx = (int) (pery * shell.getTotalSamples());
+			// 	shell.setMinMax(mn,mx);
+			// }
 		}
 
 		void draw(){
@@ -100,22 +106,18 @@ class ofApp : public ofBaseApp{
 
 			ofSetColor(0);
 			string stats = "fps: "+ofToString(ofGetFrameRate())+"\n";
-			stats += "shell command: "+ofToString(shell.systemcall)+"\n";
+			stats += "shell command: "+shell.getSystemCall()+"\n";
 			stats += "shell running: "+ofToString(shell.isProcRunning())+"\n";
-			stats += "shell bs maxsamps: "+ofToString(shell.minnumsamples)+" "+ofToString(shell.maxnumsamples)+"\n";
-			stats += "shell currentbuffer: "+ofToString(shell.readbufferid)+"\n";
-			stats += "shell readbuffers: "+ofToString(shell.numbuffersread)+"\n";
-			stats += "shell maxnumbuffers: "+ofToString(shell.maxnumbuffers)+"\n";
-			stats += "shell maxnumreadbuffers: "+ofToString(shell.maxreadbufferid)+"\n";
+			stats += "shell bs maxsamps: "+ofToString(shell.getBufferSize())+" "+ofToString(shell.getMaxSamples())+"\n";
+			stats += "shell head: "+ofToString(shell.getBufferHead())+"\n";
+			stats += "shell headread: "+ofToString(shell.getBufferReadHead())+"\n";
+			stats += "shell totalsamples: "+ofToString(shell.getTotalSamples())+"\n";
 			ofDrawBitmapString(stats, 10, 450);
 
 			// cpying
-			string buf1 = shell.readNextBufferStr();
-			string buf2 = shell.readNextBufferStr();
-			string buf3 = shell.readNextBufferStr();
-			// string buf1 = shell.getLine(0);
-			// string buf2 = shell.getLine(1);
-			// string buf3 = shell.getLine(3);
+			const string buf1 = shell.read();
+			const string buf2 = shell.read(false);
+			const string buf3 = shell.read();
 
 			ofDrawBitmapString(buf1, 20, 10);
 			ofDrawBitmapString(buf2, 20, 110);
@@ -126,8 +128,8 @@ class ofApp : public ofBaseApp{
 
 
 		void audioOut(float * output, int bufferSize, int nChannels){
-			//!cpying
-			const string & buf = shell.readNextBufferStr();
+			//cpying
+			const string buf = shell.read();
 			const char * audiochar = &buf[0];
 
 			for (int i = 0; i < bufferSize; i++){
